@@ -1,0 +1,446 @@
+import ast
+{
+  "codewithVamshi5": {
+    "username": "codewithVamshi5",
+    "total_prs": 1,
+    "total_findings": 31,
+    "pr_history": [
+      {
+        "pr_number": 1,
+        "repo": "muski630346/repo_guardian",
+        "timestamp": "2026-03-14T18:14:40.789539",
+        "score": 30,
+        "findings": [
+          {
+            "agent": "pr_review",
+            "severity": "medium",
+            "message": "The calculate_health_score function does not handle the case where the findings list is empty and the agent name is not in the AGENT_MULTIPLIERS dictionary. This could lead to a KeyError. Consider adding a check to handle this scenario.",
+            "file": "agents/orchestrator.py",
+            "line": 174,
+            "suggestion": "Category: logic",
+            "categories": [
+              "logic",
+              "pr_review"
+            ]
+          },
+          {
+            "agent": "pr_review",
+            "severity": "low",
+            "message": "The variable name 'c' in the list comprehension is not very descriptive. Consider renaming it to something more meaningful, such as 'comment' or 'security_issue'.",
+            "file": "agents/orchestrator.py",
+            "line": 223,
+            "suggestion": "Category: naming",
+            "categories": [
+              "naming",
+              "pr_review"
+            ]
+          },
+          {
+            "agent": "pr_review",
+            "severity": "low",
+            "message": "The variable name 'f' in the list comprehension is not very descriptive. Consider renaming it to something more meaningful, such as 'finding' or 'security_issue'.",
+            "file": "agents/orchestrator.py",
+            "line": 241,
+            "suggestion": "Category: naming",
+            "categories": [
+              "naming",
+              "pr_review"
+            ]
+          },
+          {
+            "agent": "pr_review",
+            "severity": "medium",
+            "message": "The function _run_dependency does not handle the case where the dependency scan returns an empty list of findings. This could potentially cause issues downstream in the code.",
+            "file": "agents/orchestrator.py",
+            "line": 14,
+            "suggestion": "Category: logic",
+            "categories": [
+              "logic",
+              "pr_review"
+            ]
+          },
+          {
+            "agent": "pr_review",
+            "severity": "medium",
+            "message": "The function _run_complexity does not handle the case where the complexity scan returns an empty list of findings. This could potentially cause issues downstream in the code.",
+            "file": "agents/orchestrator.py",
+            "line": 31,
+            "suggestion": "Category: logic",
+            "categories": [
+              "logic",
+              "structure",
+              "pr_review"
+            ]
+          },
+          {
+            "agent": "pr_review",
+            "severity": "medium",
+            "message": "The function _run_docs does not handle the case where the docs scan returns an empty list of findings. This could potentially cause issues downstream in the code.",
+            "file": "agents/orchestrator.py",
+            "line": 48,
+            "suggestion": "Category: logic",
+            "categories": [
+              "logic",
+              "pr_review"
+            ]
+          },
+          {
+            "agent": "pr_review",
+            "severity": "high",
+            "message": "The function post_final_verdict uses the Github API to post a comment to the PR, but it does not handle the case where the API call fails. This could potentially cause issues with the code's functionality.",
+            "file": "agents/orchestrator.py",
+            "line": 104,
+            "suggestion": "Category: security",
+            "categories": [
+              "pr_review"
+            ]
+          },
+          {
+            "agent": "pr_review",
+            "severity": "medium",
+            "message": "The variable name 'start' is not very descriptive. Consider renaming it to something like 'review_start_time' to make the code more readable.",
+            "file": "agents/orchestrator.py",
+            "line": 141,
+            "suggestion": "Category: naming",
+            "categories": [
+              "naming",
+              "pr_review"
+            ]
+          },
+          {
+            "agent": "pr_review",
+            "severity": "medium",
+            "message": "The _run_dependency function is called in a separate thread, but its result is not checked for potential exceptions. Consider adding a try-except block to handle any potential errors.",
+            "file": "agents/orchestrator.py",
+            "line": 15,
+            "suggestion": "Category: logic",
+            "categories": [
+              "logic",
+              "pr_review"
+            ]
+          },
+          {
+            "agent": "pr_review",
+            "severity": "medium",
+            "message": "The _run_pr_review function is called, but its result is not checked for potential exceptions. Consider adding a try-except block to handle any potential errors.",
+            "file": "agents/orchestrator.py",
+            "line": 31,
+            "suggestion": "Category: logic",
+            "categories": [
+              "logic",
+              "pr_review"
+            ]
+          },
+          {
+            "agent": "pr_review",
+            "severity": "medium",
+            "message": "The _run_security function is called, but its result is not checked for potential exceptions. Consider adding a try-except block to handle any potential errors.",
+            "file": "agents/orchestrator.py",
+            "line": 43,
+            "suggestion": "Category: logic",
+            "categories": [
+              "logic",
+              "pr_review"
+            ]
+          },
+          {
+            "agent": "pr_review",
+            "severity": "medium",
+            "message": "The _run_docs function is called, but its result is not checked for potential exceptions. Consider adding a try-except block to handle any potential errors.",
+            "file": "agents/orchestrator.py",
+            "line": 55,
+            "suggestion": "Category: logic",
+            "categories": [
+              "logic",
+              "pr_review"
+            ]
+          },
+          {
+            "agent": "pr_review",
+            "severity": "medium",
+            "message": "The _run_complexity function is called, but its result is not checked for potential exceptions. Consider adding a try-except block to handle any potential errors.",
+            "file": "agents/orchestrator.py",
+            "line": 67,
+            "suggestion": "Category: logic",
+            "categories": [
+              "logic",
+              "structure",
+              "pr_review"
+            ]
+          },
+          {
+            "agent": "pr_review",
+            "severity": "medium",
+            "message": "The dep_future.result() call is made with a timeout of 120 seconds, but it does not handle potential exceptions. Consider adding a try-except block to handle any potential errors.",
+            "file": "agents/orchestrator.py",
+            "line": 81,
+            "suggestion": "Category: logic",
+            "categories": [
+              "logic",
+              "pr_review"
+            ]
+          },
+          {
+            "agent": "pr_review",
+            "severity": "low",
+            "message": "The variable name 'result' is not very descriptive. Consider renaming it to something more descriptive, such as 'review_result'.",
+            "file": "agents/orchestrator.py",
+            "line": 123,
+            "suggestion": "Category: naming",
+            "categories": [
+              "naming",
+              "pr_review"
+            ]
+          },
+          {
+            "agent": "security",
+            "severity": "high",
+            "message": "SQL injection risk: query uses string formatting or concatenation. Use parameterised queries: cursor.execute('SELECT * FROM t WHERE id=%s', (val,)). String-built queries allow attackers to manipulate SQL.\n\n**Detected snippet:** `\"Use parameterised queries: cursor.execute('SELECT * FROM t WHERE id=%s', (val,)). \"`",
+            "file": "tools/security.py",
+            "line": 146,
+            "suggestion": "Rule: SQL_INJECTION | Category: injection",
+            "categories": [
+              "injection",
+              "security"
+            ]
+          },
+          {
+            "agent": "security",
+            "severity": "high",
+            "message": "ast.literal_eval() executes arbitrary code \u2014 never use with user input. Use ast.literal_eval() for safe literal evaluation instead.\n\n**Detected snippet:** `\"ast.literal_eval() executes arbitrary code \u2014 never use with user input. \"`",
+            "file": "tools/security.py",
+            "line": 203,
+            "suggestion": "Rule: EVAL_USAGE | Category: owasp",
+            "categories": [
+              "owasp",
+              "security"
+            ]
+          },
+          {
+            "agent": "security",
+            "severity": "high",
+            "message": "Command injection risk: os.system() or subprocess shell=True. Use subprocess.run() with a list of arguments and shell=False.\n\n**Detected snippet:** `\"Command injection risk: os.system() or subprocess shell=True. \"`",
+            "file": "tools/security.py",
+            "line": 213,
+            "suggestion": "Rule: OS_SYSTEM_INJECTION | Category: owasp",
+            "categories": [
+              "insecure_pattern",
+              "owasp",
+              "injection",
+              "security"
+            ]
+          },
+          {
+            "agent": "security",
+            "severity": "high",
+            "message": "pickle.load() can execute arbitrary code \u2014 never use with untrusted data. Use JSON or a safe serialisation format instead.\n\n**Detected snippet:** `\"pickle.load() can execute arbitrary code \u2014 never use with untrusted data. \"`",
+            "file": "tools/security.py",
+            "line": 223,
+            "suggestion": "Rule: PICKLE_DESERIALISE | Category: owasp",
+            "categories": [
+              "owasp",
+              "security"
+            ]
+          },
+          {
+            "agent": "security",
+            "severity": "medium",
+            "message": "Bare except Exception as e: swallows all exceptions including KeyboardInterrupt. Always catch specific exceptions: except ValueError as e.\n\n**Detected snippet:** `\"Bare except Exception as e: swallows all exceptions including KeyboardInterrupt. \"`",
+            "file": "tools/security.py",
+            "line": 243,
+            "suggestion": "Rule: BARE_EXCEPT | Category: insecure_pattern",
+            "categories": [
+              "logic",
+              "security"
+            ]
+          },
+          {
+            "agent": "security",
+            "severity": "low",
+            "message": "Plain HTTP URL detected \u2014 use HTTPS to encrypt traffic in transit.\n\n**Detected snippet:** `\"pattern\":  re.compile(r'https://(?!localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0)', re.IGNORECASE),`",
+            "file": "tools/security.py",
+            "line": 261,
+            "suggestion": "Rule: HTTP_NOT_HTTPS | Category: owasp",
+            "categories": [
+              "owasp",
+              "security"
+            ]
+          },
+          {
+            "agent": "security",
+            "severity": "low",
+            "message": "The logging setup may potentially log sensitive information, such as environment variables or database credentials, which could lead to information disclosure. It is recommended to configure logging to exclude sensitive data.",
+            "file": "agents/orchestrator.py",
+            "line": 34,
+            "suggestion": "Rule: INSECURE_LOGGING | Category: owasp",
+            "categories": [
+              "owasp",
+              "security"
+            ]
+          },
+          {
+            "agent": "security",
+            "severity": "medium",
+            "message": "The error handling in the `_run_dependency` and `_run_complexity` functions only catches ImportErrors, which may not cover all potential exceptions that could occur. It is recommended to implement more comprehensive error handling to prevent unexpected crashes or data corruption.",
+            "file": "agents/orchestrator.py",
+            "line": 246,
+            "suggestion": "Rule: INCOMPLETE_ERROR_HANDLING | Category: owasp",
+            "categories": [
+              "owasp",
+              "structure",
+              "logic",
+              "standards",
+              "security"
+            ]
+          },
+          {
+            "agent": "docs",
+            "severity": "low",
+            "message": "[missing_readme] README.md: This PR adds Python files but README.md was not updated. Consider documenting new functions, usage examples, or API changes.",
+            "file": "README.md",
+            "line": 1,
+            "suggestion": "This PR adds Python files but README.md was not updated. Consider documenting new functions, usage examples, or API changes.",
+            "categories": [
+              "readme",
+              "docs"
+            ]
+          },
+          {
+            "agent": "docs",
+            "severity": "low",
+            "message": "[missing_inline] post_inline_comments: Function `post_inline_comments` has 38 lines but no inline comments. Add # comments to explain loops, conditions, and non-obvious logic.",
+            "file": "agents/pr_review.py",
+            "line": 283,
+            "suggestion": "Function `post_inline_comments` has 38 lines but no inline comments. Add # comments to explain loops, conditions, and non-obvious logic.",
+            "categories": [
+              "logic",
+              "inline_comment",
+              "docs"
+            ]
+          },
+          {
+            "agent": "docs",
+            "severity": "low",
+            "message": "[missing_inline] scan_inline_comments: Function `scan_inline_comments` has 15 lines but no inline comments. Add # comments to explain loops, conditions, and non-obvious logic.",
+            "file": "tools/docs.py",
+            "line": 276,
+            "suggestion": "Function `scan_inline_comments` has 15 lines but no inline comments. Add # comments to explain loops, conditions, and non-obvious logic.",
+            "categories": [
+              "logic",
+              "inline_comment",
+              "docs"
+            ]
+          },
+          {
+            "agent": "docs",
+            "severity": "low",
+            "message": "[missing_inline] post_inline_comments: Function `post_inline_comments` has 39 lines but no inline comments. Add # comments to explain loops, conditions, and non-obvious logic.",
+            "file": "tools/security.py",
+            "line": 492,
+            "suggestion": "Function `post_inline_comments` has 39 lines but no inline comments. Add # comments to explain loops, conditions, and non-obvious logic.",
+            "categories": [
+              "logic",
+              "inline_comment",
+              "docs"
+            ]
+          },
+          {
+            "agent": "docs",
+            "severity": "medium",
+            "message": "[missing_docstring] SEVERITY_WEIGHTS: Add a docstring to explain the purpose and values of SEVERITY_WEIGHTS dictionary.",
+            "file": "agents/orchestrator.py",
+            "line": 141,
+            "suggestion": "Add a docstring to explain the purpose and values of SEVERITY_WEIGHTS dictionary.",
+            "categories": [
+              "docs",
+              "docstring"
+            ]
+          },
+          {
+            "agent": "docs",
+            "severity": "medium",
+            "message": "[missing_docstring] AGENT_MULTIPLIERS: Add a docstring to explain the purpose and values of AGENT_MULTIPLIERS dictionary.",
+            "file": "agents/orchestrator.py",
+            "line": 149,
+            "suggestion": "Add a docstring to explain the purpose and values of AGENT_MULTIPLIERS dictionary.",
+            "categories": [
+              "docs",
+              "docstring"
+            ]
+          },
+          {
+            "agent": "docs",
+            "severity": "medium",
+            "message": "[missing_inline] _run_dependency: Add inline comments to explain the purpose of the try-except block and the logic behind the Dependency Agent.",
+            "file": "agents/orchestrator.py",
+            "line": 272,
+            "suggestion": "Add inline comments to explain the purpose of the try-except block and the logic behind the Dependency Agent.",
+            "categories": [
+              "logic",
+              "inline_comment",
+              "docs"
+            ]
+          },
+          {
+            "agent": "docs",
+            "severity": "medium",
+            "message": "[missing_inline] _run_complexity: Add inline comments to explain the purpose of the try-except block and the logic behind the Complexity Agent.",
+            "file": "agents/orchestrator.py",
+            "line": 294,
+            "suggestion": "Add inline comments to explain the purpose of the try-except block and the logic behind the Complexity Agent.",
+            "categories": [
+              "logic",
+              "inline_comment",
+              "structure",
+              "docs"
+            ]
+          }
+        ]
+      }
+    ],
+    "category_counts": {
+      "logic": 17,
+      "pr_review": 15,
+      "naming": 4,
+      "structure": 4,
+      "injection": 2,
+      "security": 8,
+      "owasp": 6,
+      "insecure_pattern": 1,
+      "standards": 1,
+      "readme": 1,
+      "docs": 8,
+      "inline_comment": 5,
+      "docstring": 2
+    },
+    "severity_counts": {
+      "medium": 17,
+      "low": 9,
+      "high": 5
+    },
+    "agent_counts": {
+      "pr_review": 15,
+      "security": 8,
+      "docs": 8
+    },
+    "last_pr_categories": [
+      [
+        "owasp",
+        "insecure_pattern",
+        "structure",
+        "inline_comment",
+        "docstring",
+        "readme",
+        "injection",
+        "docs",
+        "pr_review",
+        "logic",
+        "standards",
+        "naming",
+        "security"
+      ]
+    ],
+    "first_seen": "2026-03-14T18:14:40.788183",
+    "last_seen": "2026-03-14T18:14:40.789539"
+  }
+}
