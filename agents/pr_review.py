@@ -1,6 +1,12 @@
 """
-RepoGuardian PR Review Agent
-AI-powered pull request reviewer using Groq + GitHub API
+RepoGuardian — PR Review Agent
+Analyses code logic, naming conventions, structure, and coding standards.
+Posts inline comments directly on GitHub Pull Requests.
+
+.env required:
+    GITHUB_TOKEN=...
+    GROQ_API_KEY=...
+    LLM_MODEL=groq
 """
 
 import os
@@ -29,50 +35,21 @@ github_client = Github(GITHUB_TOKEN)
 
 
 # ─────────────────────────────────────────
-# LLM Model Selector (reads LLM_MODEL from .env)
+# LLM Model Selector
 # ─────────────────────────────────────────
 
 def get_llm_client_and_model():
-    """
-    Reads LLM_MODEL from .env and returns (client, model_name).
-
-    .env options:
-        LLM_MODEL=groq       → llama-3.3-70b-versatile  (default, FREE)
-        LLM_MODEL=grok       → grok-3-mini  (xAI, uses XAI_API_KEY)
-        LLM_MODEL=anthropic  → claude-3-haiku  (uses ANTHROPIC_API_KEY)
-        LLM_MODEL=ollama     → codellama  (local, no API key needed)
-    """
     model = os.getenv("LLM_MODEL", "groq").strip().lower()
-
     if model == "groq":
-        client     = Groq(api_key=os.getenv("GROQ_API_KEY", ""))
-        model_name = "llama-3.3-70b-versatile"
-        log.info(f"LLM: Groq → {model_name}")
-        return client, model_name
-
+        return Groq(api_key=os.getenv("GROQ_API_KEY", "")), "llama-3.3-70b-versatile"
     elif model == "grok":
-        client     = Groq(api_key=os.getenv("XAI_API_KEY", ""))
-        model_name = "grok-3-mini"
-        log.info(f"LLM: xAI Grok → {model_name}")
-        return client, model_name
-
+        return Groq(api_key=os.getenv("XAI_API_KEY", "")), "grok-3-mini"
     elif model == "anthropic":
-        client     = Groq(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
-        model_name = "claude-3-haiku-20240307"
-        log.info(f"LLM: Anthropic → {model_name}")
-        return client, model_name
-
+        return Groq(api_key=os.getenv("ANTHROPIC_API_KEY", "")), "claude-3-haiku-20240307"
     elif model == "ollama":
-        client     = Groq(api_key="ollama")
-        model_name = "codellama"
-        log.info(f"LLM: Ollama (local) → {model_name}")
-        return client, model_name
-
+        return Groq(api_key="ollama"), "codellama"
     else:
-        raise ValueError(
-            f"Unknown LLM_MODEL: '{model}'. "
-            f"Valid options in .env: groq, grok, anthropic, ollama"
-        )
+        raise ValueError(f"Unknown LLM_MODEL: '{model}'. Valid: groq, grok, anthropic, ollama")
 
 
 # ─────────────────────────────────────────
@@ -102,46 +79,92 @@ class PRReviewResult:
 # ─────────────────────────────────────────
 
 SYSTEM_PROMPT = """
-You are a senior software engineer performing code reviews.
+You are a senior software engineer performing code reviews on a GitHub Pull Request diff.
 
-Analyse the code diff and return JSON only. No markdown. No explanation outside JSON.
+Analyse ONLY the files shown in the diff and return JSON only. No markdown, no extra text.
 
-Return this exact format:
+CRITICAL RULES:
+- You MUST only report issues for file paths EXACTLY as they appear after "FILE:" in the diff
+- Line numbers must match actual added lines (lines starting with +) in the diff
+- Line numbers must be positive integers greater than 0
+- Do NOT invent file names like filename.py or security_scanner.py
+- Do NOT report issues on line 0 or negative lines
+
+Return this exact JSON format:
 {
   "summary": "2-3 sentence overall assessment",
   "score_deduction": 10,
   "issues": [
     {
-      "path": "filename.py",
+      "path": "exact/path/from/FILE_header.py",
       "line": 10,
       "severity": "high",
       "category": "logic",
-      "comment": "specific actionable feedback in max 3 sentences"
+      "comment": "specific actionable feedback max 3 sentences. Name the exact function/variable."
     }
   ]
 }
 
-Severity levels:
-- high   : security risk, broken logic, will cause bugs in production
-- medium : bad practice, maintainability issue
-- low    : style, naming, minor standard violation
+Severity: high (security/broken logic) | medium (bad practice) | low (style/naming)
+Category: logic | naming | structure | standards
 
-Categories:
-- logic     : wrong conditions, bad return values, missing edge cases
-- naming    : non-descriptive names, wrong case style
-- structure : too many params, deep nesting, dead code
-- standards : insecure patterns (MD5, hardcoded secrets, raw SQL), missing docstrings, unused imports
-
-Rules:
-- Only flag REAL issues. Do not invent problems.
-- Always name the exact variable or function in your comment.
-- Always suggest the fix.
-- Return ONLY valid JSON. Nothing else.
+Return ONLY valid JSON. Nothing else.
 """
 
 
 # ─────────────────────────────────────────
-# Diff Chunking (handles large PRs)
+# GitHub — Fetch Diff + Build Valid Lines Map
+# ─────────────────────────────────────────
+
+def fetch_pr_diff(repo_name, pr_number):
+    """
+    Fetch PR diff and build valid_lines_map.
+
+    valid_lines_map = { "agents/pr_review.py": {5, 10, 23, ...} }
+
+    This map contains ONLY lines that are actual added lines (+) in the diff.
+    Used to validate LLM output — GitHub rejects comments on lines not in the diff.
+    """
+    repo = github_client.get_repo(repo_name)
+    pr   = repo.get_pull(pr_number)
+
+    diff_parts      = []
+    valid_lines_map = {}
+
+    for file in pr.get_files():
+        if not file.patch:
+            continue
+
+        filename = file.filename
+        diff_parts.append(f"FILE: {filename}")
+        diff_parts.append(file.patch)
+
+        # Parse hunk headers to map line numbers correctly
+        # Format: @@ -old_start,old_count +new_start,new_count @@
+        valid_lines_map[filename] = set()
+        current_new_line = 0
+
+        for diff_line in file.patch.split("\n"):
+            hunk = re.match(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@", diff_line)
+            if hunk:
+                current_new_line = int(hunk.group(1)) - 1
+                continue
+
+            if diff_line.startswith("-"):
+                continue                          # deleted line, no new line number
+            elif diff_line.startswith("+"):
+                current_new_line += 1
+                valid_lines_map[filename].add(current_new_line)   # valid added line
+            else:
+                current_new_line += 1             # context line
+
+    diff_text = "\n".join(diff_parts)
+    log.info(f"Fetched diff for PR #{pr_number} — {len(valid_lines_map)} file(s) changed")
+    return diff_text, pr, valid_lines_map
+
+
+# ─────────────────────────────────────────
+# Diff Chunking — capped to avoid rate limits
 # ─────────────────────────────────────────
 
 def chunk_diff(diff, max_chars=6000):
@@ -157,11 +180,17 @@ def chunk_diff(diff, max_chars=6000):
     if current:
         chunks.append(current)
 
+    # Cap at 3 chunks — Groq free tier allows ~30 req/min
+    # Both PR agent and Security agent share the limit
+    if len(chunks) > 3:
+        log.info(f"Capping {len(chunks)} chunks → 3 to respect Groq rate limits")
+        chunks = chunks[:3]
+
     return chunks
 
 
 # ─────────────────────────────────────────
-# LLM Call with Retry
+# LLM Call with Rate Limit Handling
 # ─────────────────────────────────────────
 
 def call_llm(prompt, retries=3):
@@ -176,12 +205,10 @@ def call_llm(prompt, retries=3):
                     {"role": "user",   "content": prompt}
                 ],
                 temperature=0.1,
-                max_tokens=4096,
+                max_tokens=2048,
             )
 
             raw = response.choices[0].message.content.strip()
-
-            # Clean any accidental markdown fences
             raw = re.sub(r"^```json\s*", "", raw, flags=re.MULTILINE)
             raw = re.sub(r"^```\s*",     "", raw, flags=re.MULTILINE)
             raw = re.sub(r"```$",        "", raw, flags=re.MULTILINE)
@@ -191,41 +218,60 @@ def call_llm(prompt, retries=3):
 
         except json.JSONDecodeError as e:
             log.warning(f"JSON parse failed attempt {attempt+1}: {e}")
-            time.sleep(2)
+            time.sleep(3)
 
         except Exception as e:
-            log.warning(f"LLM call failed attempt {attempt+1}: {e}")
-            time.sleep(2)
+            err = str(e)
+            if "429" in err or "rate_limit" in err.lower():
+                wait = 15 * (attempt + 1)
+                log.warning(f"Rate limit — waiting {wait}s (attempt {attempt+1})")
+                time.sleep(wait)
+            else:
+                log.warning(f"LLM failed attempt {attempt+1}: {e}")
+                time.sleep(3)
 
     log.error("All LLM retry attempts failed.")
-    return {"summary": "LLM failed to respond.", "score_deduction": 0, "issues": []}
+    return {"summary": "LLM failed.", "score_deduction": 0, "issues": []}
 
 
 # ─────────────────────────────────────────
-# GitHub — Fetch PR Diff
+# Validate Issue Against Real PR Diff Lines
 # ─────────────────────────────────────────
 
-def fetch_pr_diff(repo_name, pr_number):
-    repo = github_client.get_repo(repo_name)
-    pr   = repo.get_pull(pr_number)
+def is_valid_issue(issue: dict, valid_lines_map: dict) -> bool:
+    """
+    Returns True only if the issue path and line actually exist in the PR diff.
 
-    diff_parts = []
-    for file in pr.get_files():
-        if file.patch:
-            diff_parts.append(f"FILE: {file.filename}")
-            diff_parts.append(file.patch)
+    This is the core fix for 'Validation Failed' errors from GitHub.
+    GitHub rejects create_review_comment() calls when:
+      - The file is not part of the PR
+      - The line is not an added line in that file's diff
+    """
+    path = issue.get("path", "").strip()
+    try:
+        line = int(issue.get("line", 0))
+    except (ValueError, TypeError):
+        return False
 
-    diff_text = "\n".join(diff_parts)
-    log.info(f"Fetched diff for PR #{pr_number}")
-    return diff_text, pr
+    if not path or line <= 0:
+        return False
+
+    if path not in valid_lines_map:
+        log.warning(f"  Rejected hallucinated path: '{path}' (not in PR diff)")
+        return False
+
+    if line not in valid_lines_map[path]:
+        log.warning(f"  Rejected invalid line: {path}:{line} (not an added line)")
+        return False
+
+    return True
 
 
 # ─────────────────────────────────────────
-# GitHub — Post Inline Comments
+# Post Inline Comments
 # ─────────────────────────────────────────
 
 SEVERITY_EMOJI = {"high": "🔴", "medium": "🟡", "low": "🔵"}
-
 CATEGORY_LABEL = {
     "logic":     "Logic Issue",
     "naming":    "Naming Convention",
@@ -234,7 +280,7 @@ CATEGORY_LABEL = {
 }
 
 
-def post_inline_comments(pr, comments):
+def post_inline_comments(pr, comments: list[ReviewComment]):
     if not comments:
         log.info("No inline comments to post.")
         return
@@ -251,7 +297,7 @@ def post_inline_comments(pr, comments):
             f"{emoji} **RepoGuardian — {label}** | `{c.severity.upper()}`\n\n"
             f"{c.body}\n\n"
             f"---\n"
-            f"*Posted automatically by RepoGuardian PR Review Agent*"
+            f"*Posted by RepoGuardian PR Review Agent — KLH Hackathon 2025*"
         )
 
         try:
@@ -266,29 +312,21 @@ def post_inline_comments(pr, comments):
 
         except GithubException as e:
             skipped += 1
-            log.warning(f"  Skipped {c.path}:{c.line} — {e.data.get('message', str(e))}")
+            msg = e.data.get("message", str(e)) if hasattr(e, "data") else str(e)
+            log.warning(f"  Skipped {c.path}:{c.line} — {msg}")
 
     log.info(f"Comments posted: {posted} | Skipped: {skipped}")
 
 
-# ─────────────────────────────────────────
-# GitHub — Post Summary Comment
-# ─────────────────────────────────────────
-
-def post_summary(pr, result):
+def post_summary(pr, result: PRReviewResult):
     counts = {"high": 0, "medium": 0, "low": 0}
     for c in result.comments:
         counts[c.severity] = counts.get(c.severity, 0) + 1
 
     score = result.score
-    if score >= 85:
-        badge = "🟢 GOOD"
-    elif score >= 65:
-        badge = "🟡 NEEDS WORK"
-    else:
-        badge = "🔴 CRITICAL ISSUES"
+    badge = "🟢 GOOD" if score >= 85 else "🟡 NEEDS WORK" if score >= 65 else "🔴 CRITICAL ISSUES"
 
-    body = f"""## 🛡️ RepoGuardian — Automated PR Review
+    body = f"""## 🛡️ RepoGuardian — PR Review Report
 
 **Health Score:** `{score}/100` {badge}
 
@@ -311,52 +349,59 @@ def post_summary(pr, result):
 
 
 # ─────────────────────────────────────────
-# Main Agent — called by Orchestrator
+# Main Agent
 # ─────────────────────────────────────────
 
 def run_pr_review_agent(repo_name, pr_number):
     """
-    MAIN FUNCTION — call this from the Orchestrator.
-
-    Usage:
+    MAIN FUNCTION — called by orchestrator.
         from agents.pr_review import run_pr_review_agent
         result = run_pr_review_agent("owner/repo", 1)
     """
     log.info(f"PR Review Agent started — {repo_name} PR #{pr_number}")
 
-    # Step 1 — Fetch diff from GitHub
+    # Step 1 — Fetch diff + valid lines map
     log.info("Step 1/4 — Fetching PR diff from GitHub...")
-    diff, pr = fetch_pr_diff(repo_name, pr_number)
+    diff, pr, valid_lines_map = fetch_pr_diff(repo_name, pr_number)
 
     if not diff.strip():
         log.info("No reviewable diff found.")
-        return PRReviewResult(
-            repo_name=repo_name,
-            pr_number=pr_number,
-            summary="No reviewable code changes found.",
-            comments=[],
-            score=100
-        )
+        return PRReviewResult(repo_name=repo_name, pr_number=pr_number,
+                              summary="No reviewable code changes found.",
+                              comments=[], score=100)
 
-    # Step 2 — Chunk diff (handles large PRs)
+    # Step 2 — Chunk diff
     log.info("Step 2/4 — Chunking diff...")
     chunks = chunk_diff(diff)
     log.info(f"Diff split into {len(chunks)} chunk(s)")
 
-    # Step 3 — Send each chunk to LLM
+    # Step 3 — LLM analysis with valid file list in prompt
     log.info("Step 3/4 — Analysing with LLM...")
     all_comments    = []
     total_deduction = 0
     summary         = ""
+    valid_files     = "\n".join(f"- {f}" for f in valid_lines_map.keys())
 
     for i, chunk in enumerate(chunks):
         log.info(f"  Chunk {i+1}/{len(chunks)}...")
-        llm_result = call_llm(chunk)
+
+        # Tell the LLM exactly which file paths are valid
+        prompt = (
+            f"VALID FILES IN THIS PR (only use these exact paths):\n"
+            f"{valid_files}\n\n"
+            f"DIFF:\n{chunk}"
+        )
+
+        llm_result = call_llm(prompt)
 
         total_deduction += llm_result.get("score_deduction", 0)
-        summary = llm_result.get("summary", summary)
+        if llm_result.get("summary"):
+            summary = llm_result["summary"]
 
         for issue in llm_result.get("issues", []):
+            # Validate before accepting — prevents Validation Failed errors
+            if not is_valid_issue(issue, valid_lines_map):
+                continue
             try:
                 all_comments.append(ReviewComment(
                     path     = issue["path"],
@@ -366,19 +411,24 @@ def run_pr_review_agent(repo_name, pr_number):
                     category = issue.get("category", "standards")
                 ))
             except (KeyError, ValueError, TypeError) as e:
-                log.warning(f"Skipping bad issue: {e}")
+                log.warning(f"Skipping malformed issue: {e}")
 
-    score = max(0, 100 - total_deduction)
+        # Wait between chunks to respect Groq rate limits
+        if i < len(chunks) - 1:
+            time.sleep(5)
+
+    # Cap PR review deduction at 40 points max
+    score = max(0, 100 - min(total_deduction, 40))
 
     result = PRReviewResult(
         repo_name = repo_name,
         pr_number = pr_number,
-        summary   = summary,
+        summary   = summary or "PR review complete.",
         comments  = all_comments,
         score     = score
     )
 
-    log.info(f"Found {len(all_comments)} issue(s) | Score: {score}/100")
+    log.info(f"Found {len(all_comments)} valid issue(s) | Score: {score}/100")
 
     # Step 4 — Post to GitHub
     log.info("Step 4/4 — Posting to GitHub...")
@@ -397,12 +447,12 @@ if __name__ == "__main__":
     import sys
 
     print("\n========================================")
-    print("  RepoGuardian — PR Review Agent 🛡️")
+    print("  RepoGuardian — PR Review Agent")
     print("========================================\n")
 
     if len(sys.argv) != 3:
-        print("Usage:   python pr_review.py <owner/repo> <pr_number>")
-        print("Example: python pr_review.py vamshi/myproject 1")
+        print("Usage:   python agents/pr_review.py <owner/repo> <pr_number>")
+        print("Example: python agents/pr_review.py vamshi/myproject 1")
         sys.exit(1)
 
     repo_arg = sys.argv[1]
