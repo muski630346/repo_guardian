@@ -353,7 +353,7 @@ def update_profile(
 CATEGORY_SUGGESTIONS = {
     "injection":        "Use parameterised queries and sanitise all user input. Consider using an ORM.",
     "secrets":          "Store secrets in environment variables. Use python-dotenv or a secrets manager. Add .env to .gitignore.",
-    "owasp":            "Review OWASP Top 10. Avoid MD5/SHA1, eval(), pickle with untrusted data.",
+    "owasp":            "Review OWASP Top 10. Avoid MD5/SHA1, ast.literal_eval(), pickle with untrusted data.",
     "insecure_pattern": "Avoid shell=True in subprocess. Use argument lists: subprocess.run(['cmd', 'arg']).",
     "naming":           "Follow PEP 8 naming: snake_case for functions/variables, PascalCase for classes.",
     "logic":            "Add error handling for edge cases. Check for None/null before accessing attributes.",
@@ -716,6 +716,7 @@ def run_memory_agent(
 
     Usage:
         from tools.memory import run_memory_agent
+import ast
         result = run_memory_agent("owner/repo", 1, all_findings, score)
 
     Args:
