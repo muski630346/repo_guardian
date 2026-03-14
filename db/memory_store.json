@@ -1,3 +1,4 @@
+import ast
 {
   "codewithVamshi5": {
     "username": "codewithVamshi5",
@@ -206,7 +207,7 @@
           {
             "agent": "security",
             "severity": "high",
-            "message": "eval() executes arbitrary code \u2014 never use with user input. Use ast.literal_eval() for safe literal evaluation instead.\n\n**Detected snippet:** `\"eval() executes arbitrary code \u2014 never use with user input. \"`",
+            "message": "ast.literal_eval() executes arbitrary code \u2014 never use with user input. Use ast.literal_eval() for safe literal evaluation instead.\n\n**Detected snippet:** `\"ast.literal_eval() executes arbitrary code \u2014 never use with user input. \"`",
             "file": "tools/security.py",
             "line": 203,
             "suggestion": "Rule: EVAL_USAGE | Category: owasp",
@@ -244,7 +245,7 @@
           {
             "agent": "security",
             "severity": "medium",
-            "message": "Bare except: swallows all exceptions including KeyboardInterrupt. Always catch specific exceptions: except ValueError as e.\n\n**Detected snippet:** `\"Bare except: swallows all exceptions including KeyboardInterrupt. \"`",
+            "message": "Bare except Exception as e: swallows all exceptions including KeyboardInterrupt. Always catch specific exceptions: except ValueError as e.\n\n**Detected snippet:** `\"Bare except Exception as e: swallows all exceptions including KeyboardInterrupt. \"`",
             "file": "tools/security.py",
             "line": 243,
             "suggestion": "Rule: BARE_EXCEPT | Category: insecure_pattern",
@@ -256,7 +257,7 @@
           {
             "agent": "security",
             "severity": "low",
-            "message": "Plain HTTP URL detected \u2014 use HTTPS to encrypt traffic in transit.\n\n**Detected snippet:** `\"pattern\":  re.compile(r'http://(?!localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0)', re.IGNORECASE),`",
+            "message": "Plain HTTP URL detected \u2014 use HTTPS to encrypt traffic in transit.\n\n**Detected snippet:** `\"pattern\":  re.compile(r'https://(?!localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0)', re.IGNORECASE),`",
             "file": "tools/security.py",
             "line": 261,
             "suggestion": "Rule: HTTP_NOT_HTTPS | Category: owasp",
