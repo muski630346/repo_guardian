@@ -214,11 +214,6 @@ def _run_complexity(repo_name: str, pr_number: int) -> tuple[list[Finding], str]
         return [], "complexity"
 
 
-# ─────────────────────────────────────────
-# GitHub — Post Final Orchestrator Summary
-# ─────────────────────────────────────────
-
-
 def _run_docs(repo_name: str, pr_number: int) -> tuple[list[Finding], str]:
     """Docs Agent — verifies docstrings, README, and inline comments."""
     try:
@@ -232,6 +227,33 @@ def _run_docs(repo_name: str, pr_number: int) -> tuple[list[Finding], str]:
         log_warn("Docs agent not found — skipping (tools/docs.py missing)")
         return [], "docs"
 
+
+def _run_memory(repo_name: str, pr_number: int,
+                all_findings: list[Finding], health_score: int):
+    """
+    Memory Agent — runs LAST, after all other agents finish.
+    No LLM, no rate limit risk. Tracks developer patterns over time.
+    Receives the combined findings list and final health score.
+    Posts a personalised recurring-issue report to the PR.
+    """
+    try:
+        from tools.memory import run_memory_scan
+        log_agent("Memory Agent starting...")
+        start  = time.time()
+        result = run_memory_scan(repo_name, pr_number, all_findings, health_score)
+        log_ok(
+            f"Memory done in {round(time.time()-start,1)}s — "
+            f"{len(result.recurring_alerts)} alert(s) for @{result.developer}"
+        )
+        return result
+    except ImportError:
+        log_warn("Memory agent not found — skipping (tools/memory.py missing)")
+        return None
+
+
+# ─────────────────────────────────────────
+# GitHub — Post Final Orchestrator Summary
+# ─────────────────────────────────────────
 
 def post_final_verdict(repo_name: str, pr_number: int, score_data: dict,
                        all_findings: list[Finding], elapsed: float):
@@ -414,6 +436,26 @@ def run_full_review(repo_name: str, pr_number: int) -> ReviewResult:
     print("═" * 60)
     print()
 
+    # ── MEMORY AGENT — runs after score is known ──────────────
+    # Memory needs the final score to store in developer history.
+    # No LLM used — no sleep needed, no rate limit risk.
+    print("─" * 60)
+    log_agent("Memory Agent starting... [POST-SCORE]")
+    print("─" * 60)
+    memory_result = None
+    try:
+        memory_result = _run_memory(repo_name, pr_number, all_findings, score_data["score"])
+        if memory_result:
+            log_ok(
+                f"Memory: @{memory_result.developer} | "
+                f"{len(memory_result.recurring_alerts)} recurring alert(s) | "
+                f"{memory_result.profile_summary.get('total_prs', 1)} total PR(s) tracked"
+            )
+    except Exception as e:
+        log_err(f"Memory Agent crashed: {e} — skipping")
+
+    print()
+
     # ── POST FINAL VERDICT TO GITHUB ──────────────────────────
     post_final_verdict(repo_name, pr_number, score_data, all_findings, elapsed)
 
@@ -426,16 +468,20 @@ def run_full_review(repo_name: str, pr_number: int) -> ReviewResult:
     )
 
     result.metadata = {
-        "grade":          score_data["grade"],
-        "score_summary":  score_data["summary"],
-        "score_breakdown":score_data["breakdown"],
-        "total_findings": len(all_findings),
-        "highs":          score_data.get("highs", 0),
-        "mediums":        score_data.get("mediums", 0),
-        "lows":           score_data.get("lows", 0),
-        "review_time_s":  elapsed,
-        "timestamp":      datetime.now().isoformat(),
-        "llm_used":       os.getenv("LLM_MODEL", "groq"),
+        "grade":            score_data["grade"],
+        "score_summary":    score_data["summary"],
+        "score_breakdown":  score_data["breakdown"],
+        "total_findings":   len(all_findings),
+        "highs":            score_data.get("highs", 0),
+        "mediums":          score_data.get("mediums", 0),
+        "lows":             score_data.get("lows", 0),
+        "review_time_s":    elapsed,
+        "timestamp":        datetime.now().isoformat(),
+        "llm_used":         os.getenv("LLM_MODEL", "groq"),
+        # Memory Agent results — available to P4 dashboard
+        "memory_developer": memory_result.developer if memory_result else None,
+        "memory_alerts":    len(memory_result.recurring_alerts) if memory_result else 0,
+        "memory_profile":   memory_result.profile_summary if memory_result else {},
     }
 
     # ── TERMINAL SUMMARY BOX ──────────────────────────────────
@@ -446,6 +492,8 @@ def run_full_review(repo_name: str, pr_number: int) -> ReviewResult:
     print(f"║    Critical    : {score_data.get('highs', 0)}")
     print(f"║    Warnings    : {score_data.get('mediums', 0)}")
     print(f"║    Suggestions : {score_data.get('lows', 0)}")
+    if memory_result:
+        print(f"║  Memory Alerts : {len(memory_result.recurring_alerts)} for @{memory_result.developer}")
     print("╚══════════════════════════════════════════════════════════╝")
 
     log_ok("ReviewResult ready — passing to dashboard (P4)")
@@ -482,3 +530,6 @@ if __name__ == "__main__":
     print(f"  Findings : {len(result.findings)}")
     print(f"  Grade    : {result.metadata['grade']}")
     print(f"  Time     : {result.metadata['review_time_s']}s")
+    if result.metadata.get("memory_developer"):
+        print(f"  Memory   : @{result.metadata['memory_developer']} | "
+              f"{result.metadata['memory_alerts']} alert(s)")
