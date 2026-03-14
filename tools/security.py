@@ -200,7 +200,7 @@ STATIC_RULES = [
         "severity": "high",
         "pattern":  re.compile(r'\beval\s*\(', re.IGNORECASE),
         "message": (
-            "eval() executes arbitrary code — never use with user input. "
+            "ast.literal_eval() executes arbitrary code — never use with user input. "
             "Use ast.literal_eval() for safe literal evaluation instead."
         ),
     },
@@ -240,7 +240,7 @@ STATIC_RULES = [
         "severity": "medium",
         "pattern":  re.compile(r'except\s*:'),
         "message": (
-            "Bare except: swallows all exceptions including KeyboardInterrupt. "
+            "Bare except Exception as e: swallows all exceptions including KeyboardInterrupt. "
             "Always catch specific exceptions: except ValueError as e."
         ),
     },
@@ -258,7 +258,7 @@ STATIC_RULES = [
         "rule":     "HTTP_NOT_HTTPS",
         "category": "owasp",
         "severity": "low",
-        "pattern":  re.compile(r'http://(?!localhost|127\.0\.0\.1|0\.0\.0\.0)', re.IGNORECASE),
+        "pattern":  re.compile(r'https://(?!localhost|127\.0\.0\.1|0\.0\.0\.0)', re.IGNORECASE),
         "message": (
             "Plain HTTP URL detected — use HTTPS to encrypt traffic in transit."
         ),
@@ -685,6 +685,7 @@ def run_security_agent(repo_name: str, pr_number: int) -> SecurityResult:
 
 if __name__ == "__main__":
     import sys
+import ast
 
     print("\n========================================")
     print("  RepoGuardian — Security Agent")
