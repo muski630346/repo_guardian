@@ -1,0 +1,9 @@
+flask==3.0.2
+requests==2.31.0
+python-dotenv==1.0.1
+PyGithub==2.3.0
+bandit==1.7.8
+pandas==2.2.2
+streamlit==1.35.0
+plotly==5.22.0
+gunicorn==22.0.0

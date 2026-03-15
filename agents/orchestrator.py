@@ -1,8 +1,17 @@
 """
 RepoGuardian — Orchestrator Agent
-Receives GitHub webhook, runs all agents in parallel,
+Receives GitHub webhook, runs all agents in sequence,
 aggregates findings, calculates a fair health score,
 posts the final verdict to GitHub PR.
+
+Agent execution order:
+    1. Dependency   (background, no LLM, pip-audit)
+    2. PR Review    (LLM 1/4)
+    3. Security     (LLM 2/4)
+    4. Docs         (LLM 3/4)
+    5. Complexity   (LLM 4/4)
+    6. Memory       (no LLM — runs after score is known)
+    7. Auto-Fix     (no LLM — runs last, raises fix PR if possible)
 
 .env required:
     GITHUB_TOKEN=...
@@ -15,7 +24,7 @@ import sys
 import time
 import logging
 from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -74,11 +83,11 @@ def log_score(m):   _log("📊", m, "34")
 
 SEVERITY_WEIGHTS  = {"high": 15, "medium": 7, "low": 2}
 AGENT_MULTIPLIERS = {
-    "security":   1.5,   # security issues penalised 50% extra
-    "dependency": 1.3,   # CVEs penalised 30% extra
+    "security":   1.5,
+    "dependency": 1.3,
     "pr_review":  1.0,
     "complexity": 1.0,
-    "docs":       0.5,   # docs issues penalised less
+    "docs":       0.5,
 }
 
 
@@ -106,34 +115,29 @@ def calculate_health_score(findings: list[Finding]) -> dict:
             f.agent, {"high": 0, "medium": 0, "low": 0, "penalty": 0}
         )
         bucket[f.severity] = bucket.get(f.severity, 0) + 1
-        bucket["penalty"] += weight
+        bucket["penalty"]  += weight
 
-    # Cap total penalty at 70 — even a very bad PR gets at least 30/100
     penalty = min(penalty, 70)
     score   = max(30, round(100 - penalty))
-
-    grade = "A" if score >= 90 else "B" if score >= 80 else "C" if score >= 70 else "D" if score >= 50 else "F"
+    grade   = "A" if score >= 90 else "B" if score >= 80 else "C" if score >= 70 else "D" if score >= 50 else "F"
 
     highs = sum(1 for f in findings if f.severity == "high")
     meds  = sum(1 for f in findings if f.severity == "medium")
     lows  = sum(1 for f in findings if f.severity == "low")
 
     return {
-        "score":     score,
-        "grade":     grade,
+        "score":    score,
+        "grade":    grade,
         "breakdown": breakdown,
-        "summary":   f"{len(findings)} issues — {highs} critical, {meds} warnings, {lows} suggestions",
-        "highs":     highs,
-        "mediums":   meds,
-        "lows":      lows,
+        "summary":  f"{len(findings)} issues — {highs} critical, {meds} warnings, {lows} suggestions",
+        "highs":    highs,
+        "mediums":  meds,
+        "lows":     lows,
     }
 
 
 # ─────────────────────────────────────────
-# Agent Runners
-# Each returns (list[Finding], agent_name)
-# Individual agent scores are IGNORED —
-# the orchestrator recalculates score centrally
+# Agent Runners — each returns findings
 # ─────────────────────────────────────────
 
 def _run_pr_review(repo_name: str, pr_number: int) -> tuple[list[Finding], str]:
@@ -144,7 +148,6 @@ def _run_pr_review(repo_name: str, pr_number: int) -> tuple[list[Finding], str]:
     start  = time.time()
     result = run_pr_review_agent(repo_name, pr_number)
 
-    # Convert ReviewComment objects → Finding objects
     findings = [
         Finding(
             agent      = "pr_review",
@@ -169,7 +172,6 @@ def _run_security(repo_name: str, pr_number: int) -> tuple[list[Finding], str]:
     start  = time.time()
     result = run_security_agent(repo_name, pr_number)
 
-    # Convert SecurityIssue objects → Finding objects
     findings = [
         Finding(
             agent      = "security",
@@ -187,7 +189,7 @@ def _run_security(repo_name: str, pr_number: int) -> tuple[list[Finding], str]:
 
 
 def _run_dependency(repo_name: str, pr_number: int) -> tuple[list[Finding], str]:
-    """Dependency Agent — plug in tools/dependency.py when ready."""
+    """Dependency Agent — pip-audit CVE scanner, no LLM."""
     try:
         from tools.dependency import run_dependency_scan
         log_agent("Dependency Agent starting...")
@@ -201,7 +203,7 @@ def _run_dependency(repo_name: str, pr_number: int) -> tuple[list[Finding], str]
 
 
 def _run_complexity(repo_name: str, pr_number: int) -> tuple[list[Finding], str]:
-    """Complexity Agent — plug in tools/complexity.py when ready."""
+    """Complexity Agent — Radon code smell scanner."""
     try:
         from tools.complexity import run_complexity_scan
         log_agent("Complexity Agent starting...")
@@ -215,7 +217,7 @@ def _run_complexity(repo_name: str, pr_number: int) -> tuple[list[Finding], str]
 
 
 def _run_docs(repo_name: str, pr_number: int) -> tuple[list[Finding], str]:
-    """Docs Agent — verifies docstrings, README, and inline comments."""
+    """Docs Agent — docstring, README, and inline comment coverage."""
     try:
         from tools.docs import run_docs_scan
         log_agent("Docs Agent starting...")
@@ -231,10 +233,9 @@ def _run_docs(repo_name: str, pr_number: int) -> tuple[list[Finding], str]:
 def _run_memory(repo_name: str, pr_number: int,
                 all_findings: list[Finding], health_score: int):
     """
-    Memory Agent — runs LAST, after all other agents finish.
-    No LLM, no rate limit risk. Tracks developer patterns over time.
-    Receives the combined findings list and final health score.
-    Posts a personalised recurring-issue report to the PR.
+    Memory Agent — runs after score is calculated.
+    Tracks developer patterns over time, posts personalised alerts.
+    No LLM — no rate limit risk.
     """
     try:
         from tools.memory import run_memory_scan
@@ -251,12 +252,44 @@ def _run_memory(repo_name: str, pr_number: int,
         return None
 
 
+def _run_autofix(repo_name: str, pr_number: int,
+                 all_findings: list[Finding]):
+    """
+    Auto-Fix Agent — runs LAST after all analysis is done.
+    Applies safe deterministic fixes and raises a ready-to-merge PR.
+    No LLM — no rate limit risk.
+    Only fixes: secrets→os.getenv, MD5→SHA256, debug→False,
+                http→https, bare except, eval→ast.literal_eval,
+                insecure random→secrets
+    """
+    try:
+        from tools.autofix import run_autofix_scan
+        log_agent("Auto-Fix Agent starting...")
+        start  = time.time()
+        result = run_autofix_scan(repo_name, pr_number, all_findings)
+        if result.fixes_applied:
+            log_ok(
+                f"Auto-Fix done in {round(time.time()-start,1)}s — "
+                f"{len(result.fixes_applied)} fix(es) | Fix PR: #{result.fix_pr_number}"
+            )
+        else:
+            log_ok(
+                f"Auto-Fix done in {round(time.time()-start,1)}s — "
+                f"no auto-fixable issues found"
+            )
+        return result
+    except ImportError:
+        log_warn("Auto-Fix agent not found — skipping (tools/autofix.py missing)")
+        return None
+
+
 # ─────────────────────────────────────────
 # GitHub — Post Final Orchestrator Summary
 # ─────────────────────────────────────────
 
 def post_final_verdict(repo_name: str, pr_number: int, score_data: dict,
-                       all_findings: list[Finding], elapsed: float):
+                       all_findings: list[Finding], elapsed: float,
+                       autofix_result=None):
     """Post the master orchestrator summary comment to GitHub PR."""
     try:
         from github import Github
@@ -274,14 +307,29 @@ def post_final_verdict(repo_name: str, pr_number: int, score_data: dict,
         else:
             badge = "🔴 REJECTED — Critical issues found"
 
-        # Per-agent breakdown table
         breakdown_rows = "".join(
             f"| {agent.replace('_',' ').title()} | "
             f"{data.get('high',0)} | {data.get('medium',0)} | {data.get('low',0)} |\n"
             for agent, data in score_data["breakdown"].items()
         )
 
-        agents_run = len([a for a, d in score_data["breakdown"].items()])
+        agents_run = len(score_data["breakdown"])
+
+        # Auto-Fix section in verdict
+        autofix_section = ""
+        if autofix_result and autofix_result.fixes_applied:
+            autofix_section = f"""
+### 🤖 Auto-Fix PR
+RepoGuardian automatically fixed **{len(autofix_result.fixes_applied)} issue(s)**.
+**Fix PR:** {autofix_result.fix_pr_url} (#{autofix_result.fix_pr_number})
+> Review and merge the fix PR to resolve these issues automatically.
+"""
+        elif autofix_result and autofix_result.skipped_rules:
+            autofix_section = f"""
+### 🤖 Auto-Fix
+No auto-fixable issues found. The following require manual fixes:
+{chr(10).join(f'- `{r}`' for r in autofix_result.skipped_rules)}
+"""
 
         body = f"""## 🛡️ RepoGuardian — Full Automated Review
 
@@ -302,7 +350,7 @@ def post_final_verdict(repo_name: str, pr_number: int, score_data: dict,
 | 🟡 Medium (should fix) | **{score_data['mediums']}** |
 | 🔵 Low (nice to fix) | **{score_data['lows']}** |
 | **Total** | **{len(all_findings)}** |
-
+{autofix_section}
 > ⏱️ Review completed in `{elapsed}s` across `{agents_run}` active agent(s).
 > Inline comments posted on each affected line by each specialist agent.
 > *RepoGuardian Orchestrator — KLH Hackathon 2025 — Powered by Groq + Llama3*
@@ -322,8 +370,14 @@ def run_full_review(repo_name: str, pr_number: int) -> ReviewResult:
     """
     MAIN FUNCTION — called by webhook receiver (webhook/receiver.py).
 
-    Runs all agents in parallel, aggregates findings into one list,
-    calculates a single unified health score, posts verdict to GitHub.
+    Full agent execution order:
+        [Background] Dependency  — pip-audit, no LLM
+        [LLM 1/4]    PR Review   — code logic, naming, structure
+        [LLM 2/4]    Security    — OWASP, secrets, injection
+        [LLM 3/4]    Docs        — docstrings, README, inline comments
+        [LLM 4/4]    Complexity  — code smell, Radon
+        [Post-score] Memory      — developer pattern tracking, no LLM
+        [Final]      Auto-Fix    — raises fix PR for simple issues, no LLM
 
     Usage:
         from agents.orchestrator import run_full_review
@@ -338,28 +392,22 @@ def run_full_review(repo_name: str, pr_number: int) -> ReviewResult:
     all_findings = []
 
     # ── RATE LIMIT STRATEGY ──────────────────────────────────
-    # Groq free tier has a strict tokens/minute limit.
-    # Running all agents in parallel fires multiple LLM calls
-    # simultaneously and instantly causes 429 errors.
+    # Groq free tier: strict tokens/minute limit.
+    # Dependency (no LLM) runs in background thread.
+    # LLM agents run ONE AT A TIME, 20s apart.
+    # Memory + Auto-Fix run after score — no LLM, no sleep needed.
     #
-    # SOLUTION:
-    #   - Dependency (pip-audit, NO LLM) runs in a background thread
-    #   - All LLM agents run ONE AT A TIME, 20s apart
-    #   - complexity.py has NO internal sleep — orchestrator controls timing
-    #
-    # LLM call schedule (spread over ~60s):
+    # LLM call schedule:
     #   t=0s   PR Review  → up to 3 chunk calls
     #   t=20s  Security   → 1 call
     #   t=40s  Docs       → 1 call
     #   t=60s  Complexity → 1 call
-    #   Total: 6 calls spread over 60s = well within 30 req/min
 
     print("─" * 60)
     log_info("Dependency Agent starting in background (no LLM)...")
     print("─" * 60)
 
     with ThreadPoolExecutor(max_workers=1) as dep_executor:
-        # Dependency uses pip-audit only — safe to run in background
         dep_future = dep_executor.submit(_run_dependency, repo_name, pr_number)
 
         print()
@@ -404,7 +452,7 @@ def run_full_review(repo_name: str, pr_number: int) -> ReviewResult:
         log_info("Waiting 20s before next LLM agent (rate limit gap)...")
         time.sleep(20)
 
-        # ── LLM Agent 4: Complexity / Code Smell ──────────────
+        # ── LLM Agent 4: Complexity ────────────────────────────
         log_agent("Code Smell Agent starting... [LLM 4/4]")
         try:
             findings, _ = _run_complexity(repo_name, pr_number)
@@ -413,7 +461,7 @@ def run_full_review(repo_name: str, pr_number: int) -> ReviewResult:
         except Exception as e:
             log_err(f"Complexity crashed: {e} — skipping")
 
-        # ── Collect Dependency results from background ─────────
+        # ── Collect Dependency from background ─────────────────
         try:
             dep_findings, _ = dep_future.result(timeout=120)
             all_findings.extend(dep_findings)
@@ -424,8 +472,6 @@ def run_full_review(repo_name: str, pr_number: int) -> ReviewResult:
     print()
 
     # ── SINGLE UNIFIED HEALTH SCORE ───────────────────────────
-    # Score is calculated ONCE from ALL findings combined.
-    # This prevents the double-penalty bug that caused score = 0.
     print("═" * 60)
     score_data = calculate_health_score(all_findings)
     elapsed    = round(time.time() - start, 1)
@@ -436,11 +482,9 @@ def run_full_review(repo_name: str, pr_number: int) -> ReviewResult:
     print("═" * 60)
     print()
 
-    # ── MEMORY AGENT — runs after score is known ──────────────
-    # Memory needs the final score to store in developer history.
-    # No LLM used — no sleep needed, no rate limit risk.
+    # ── MEMORY AGENT — post-score, no LLM ─────────────────────
     print("─" * 60)
-    log_agent("Memory Agent starting... [POST-SCORE]")
+    log_agent("Memory Agent starting... [POST-SCORE, no LLM]")
     print("─" * 60)
     memory_result = None
     try:
@@ -456,8 +500,34 @@ def run_full_review(repo_name: str, pr_number: int) -> ReviewResult:
 
     print()
 
+    # ── AUTO-FIX AGENT — runs last, no LLM ────────────────────
+    print("─" * 60)
+    log_agent("Auto-Fix Agent starting... [FINAL, no LLM]")
+    print("─" * 60)
+    autofix_result = None
+    try:
+        autofix_result = _run_autofix(repo_name, pr_number, all_findings)
+        if autofix_result and autofix_result.fixes_applied:
+            log_ok(
+                f"Auto-Fix: {len(autofix_result.fixes_applied)} fix(es) applied | "
+                f"Fix PR: #{autofix_result.fix_pr_number} — {autofix_result.fix_pr_url}"
+            )
+        elif autofix_result:
+            log_ok("Auto-Fix: no auto-fixable issues in this PR")
+    except Exception as e:
+        log_err(f"Auto-Fix Agent crashed: {e} — skipping")
+
+    print()
+
     # ── POST FINAL VERDICT TO GITHUB ──────────────────────────
-    post_final_verdict(repo_name, pr_number, score_data, all_findings, elapsed)
+    post_final_verdict(
+        repo_name      = repo_name,
+        pr_number      = pr_number,
+        score_data     = score_data,
+        all_findings   = all_findings,
+        elapsed        = elapsed,
+        autofix_result = autofix_result,
+    )
 
     # ── BUILD RESULT OBJECT ───────────────────────────────────
     result = ReviewResult(
@@ -478,10 +548,15 @@ def run_full_review(repo_name: str, pr_number: int) -> ReviewResult:
         "review_time_s":    elapsed,
         "timestamp":        datetime.now().isoformat(),
         "llm_used":         os.getenv("LLM_MODEL", "groq"),
-        # Memory Agent results — available to P4 dashboard
+        # Memory Agent
         "memory_developer": memory_result.developer if memory_result else None,
         "memory_alerts":    len(memory_result.recurring_alerts) if memory_result else 0,
         "memory_profile":   memory_result.profile_summary if memory_result else {},
+        # Auto-Fix Agent
+        "autofix_count":    len(autofix_result.fixes_applied) if autofix_result else 0,
+        "autofix_pr_url":   autofix_result.fix_pr_url if autofix_result else None,
+        "autofix_pr_number":autofix_result.fix_pr_number if autofix_result else None,
+        "autofix_skipped":  autofix_result.skipped_rules if autofix_result else [],
     }
 
     # ── TERMINAL SUMMARY BOX ──────────────────────────────────
@@ -494,6 +569,10 @@ def run_full_review(repo_name: str, pr_number: int) -> ReviewResult:
     print(f"║    Suggestions : {score_data.get('lows', 0)}")
     if memory_result:
         print(f"║  Memory Alerts : {len(memory_result.recurring_alerts)} for @{memory_result.developer}")
+    if autofix_result and autofix_result.fixes_applied:
+        print(f"║  Auto-Fix PR   : #{autofix_result.fix_pr_number} ({len(autofix_result.fixes_applied)} fix(es))")
+    elif autofix_result:
+        print(f"║  Auto-Fix      : no fixable issues")
     print("╚══════════════════════════════════════════════════════════╝")
 
     log_ok("ReviewResult ready — passing to dashboard (P4)")
@@ -524,12 +603,15 @@ if __name__ == "__main__":
 
     result = run_full_review(repo_arg, pr_arg)
 
-    print(f"\n  PR       : #{result.pr_number}")
-    print(f"  Repo     : {result.repo}")
-    print(f"  Score    : {result.health_score}/100")
-    print(f"  Findings : {len(result.findings)}")
-    print(f"  Grade    : {result.metadata['grade']}")
-    print(f"  Time     : {result.metadata['review_time_s']}s")
+    print(f"\n  PR           : #{result.pr_number}")
+    print(f"  Repo         : {result.repo}")
+    print(f"  Score        : {result.health_score}/100")
+    print(f"  Findings     : {len(result.findings)}")
+    print(f"  Grade        : {result.metadata['grade']}")
+    print(f"  Time         : {result.metadata['review_time_s']}s")
     if result.metadata.get("memory_developer"):
-        print(f"  Memory   : @{result.metadata['memory_developer']} | "
+        print(f"  Memory       : @{result.metadata['memory_developer']} | "
               f"{result.metadata['memory_alerts']} alert(s)")
+    if result.metadata.get("autofix_pr_url"):
+        print(f"  Fix PR       : #{result.metadata['autofix_pr_number']} — "
+              f"{result.metadata['autofix_pr_url']}")
