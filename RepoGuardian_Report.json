@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-05-06T16:58:05.931320",
+  "summary": {
+    "critical": 2,
+    "high": 5,
+    "medium": 8,
+    "security_score": 82
+  },
+  "activity": [
+    {
+      "message": "Generic vulnerability simulation executed",
+      "level": "info",
+      "time": "16:57:01"
+    }
+  ]
+}
