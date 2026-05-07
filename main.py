@@ -32,6 +32,22 @@ import hmac
 import hashlib
 from agents.orchestrator_agent import orchestrator_agent
 from agents.memory_agent import memory_agent
+from fastapi import FastAPI
+
+app = FastAPI()
+
+activities = []
+
+agent_status = {
+
+    "Orchestrator Agent": "IDLE",
+
+    "Security Agent": "IDLE",
+
+    "Repo Health Agent": "IDLE",
+
+    "Memory Agent": "IDLE"
+}
 REPO_ROOT = Path(__file__).resolve().parent.parent
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 class PRRequest(BaseModel):
@@ -1484,6 +1500,13 @@ async def github_webhook(request: Request):
         # ----------------------------------------
 
         if event == "push":
+            agent_status["Orchestrator Agent"] = "ACTIVE"
+
+            agent_status["Security Agent"] = "SCANNING"
+
+            agent_status["Repo Health Agent"] = "ANALYZING"
+
+            agent_status["Memory Agent"] = "LEARNING"
 
             repo_name = payload["repository"]["full_name"]
 
@@ -1585,7 +1608,13 @@ async def github_webhook(request: Request):
                 "[Orchestrator Agent] "
                 "Autonomous security workflow completed"
             )
+            agent_status["Orchestrator Agent"] = "IDLE"
 
+            agent_status["Security Agent"] = "IDLE"
+
+            agent_status["Repo Health Agent"] = "IDLE"
+
+            agent_status["Memory Agent"] = "IDLE"
             return {
 
                 "success": True,
@@ -1633,6 +1662,10 @@ async def github_webhook(request: Request):
             "success": False,
             "error": str(e)
         }
+@app.get("/api/agent-status")
+def get_agent_status():
+
+    return agent_status
 # ─────────────────────────────────────────
 # Run
 # ─────────────────────────────────────────

@@ -1,0 +1,16 @@
+[
+    {
+        "developer": "muski630346",
+        "issue": "Hardcoded Secret",
+        "count": 1,
+        "first_seen": "2026-05-07 15:30:39",
+        "last_seen": "2026-05-07 15:30:39"
+    },
+    {
+        "developer": "muski630346",
+        "issue": "SQL Injection",
+        "count": 1,
+        "first_seen": "2026-05-07 15:30:39",
+        "last_seen": "2026-05-07 15:30:39"
+    }
+]
