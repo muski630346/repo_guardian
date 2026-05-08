@@ -235,7 +235,49 @@ repoguardian/
 ```
 Webhook test
 ---
+## 🔮 Future Scope
 
+RepoGuardian is designed to evolve into a fully autonomous repository intelligence platform. Planned future improvements include:
+
+### 🚀 Advanced AI Features
+- AI-generated unit and integration test creation
+- Automatic bug reproduction from issue descriptions
+- Root-cause analysis for failed CI/CD pipelines
+- PR summarisation using LLMs for faster reviews
+
+### 🌐 Multi-Platform Support
+- Bitbucket and Azure DevOps integration
+- Multi-repository organisation dashboards
+- Cross-repository dependency tracking
+
+### 🔐 Enhanced Security
+- Real-time malware and ransomware signature detection
+- Secret rotation recommendations
+- Infrastructure-as-Code (IaC) security scanning
+- Docker and Kubernetes vulnerability analysis
+
+### 📊 Smarter Analytics
+- Developer productivity insights
+- Predictive technical debt analysis
+- Repository stability forecasting using historical trends
+- Team-wide quality benchmarking
+
+### 🤝 Collaboration Integrations
+- Slack, Discord, and Microsoft Teams notifications
+- Jira and Trello integration for automatic ticket creation
+- Email digest reports for repository health
+
+### ☁️ Enterprise Deployment
+- Kubernetes-native deployment support
+- RBAC and SSO authentication
+- Air-gapped enterprise installation
+- Scalable distributed agent execution
+
+### 🧠 Intelligent Learning System
+- Self-improving agents based on reviewer feedback
+- Personalised coding recommendations per developer
+- Adaptive severity scoring based on project history
+---
 ## 📄 License
 
  built for KLH Hackathon 2025.
