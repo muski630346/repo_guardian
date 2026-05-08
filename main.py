@@ -16,7 +16,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from github import Github
 import requests
-
+import smtplib
+from email.mime.text import MIMEText
 from agents.pr_review import run_pr_review_agent, PRReviewResult, ReviewComment
 from agents.policy_agent import PolicyAgent
 from agents.history_scanner import load_findings, run_history_scan
@@ -35,7 +36,7 @@ from agents.memory_agent import memory_agent
 from fastapi import FastAPI
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 app = FastAPI()
-
+load_dotenv()
 activities = []
 
 agent_status = {
@@ -187,31 +188,31 @@ class ReviewRequest(BaseModel):
     repo: str
     pr_number: int
 
-async def send_security_email(subject, body):
+def send_security_email(subject, body):
+
+    sender = os.getenv("EMAIL_USER")
+    password = os.getenv("EMAIL_PASS")
+    receiver = os.getenv("ALERT_RECEIVER")
+
+    if not sender or not password or not receiver:
+        print("Email environment variables missing")
+        return
+
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = sender
+    msg["To"] = receiver
 
     try:
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(sender, password)
+        server.sendmail(sender, receiver, msg.as_string())
+        server.quit()
 
-        message = MessageSchema(
-
-            subject=subject,
-
-            recipients=[
-                os.getenv("MAIL_USERNAME")
-            ],
-
-            body=body,
-
-            subtype="html"
-        )
-
-        fm = FastMail(mail_conf)
-
-        await fm.send_message(message)
-
-        print("Security email sent")
+        print("Security email alert sent")
 
     except Exception as e:
-
         print("Email failed:", e)
 # ─────────────────────────────────────────
 # Health check
@@ -1232,7 +1233,10 @@ RepoGuardian Autonomous Security Engine
             "[GitHub Agent] Secure remediation branch pushed to GitHub",
             "success"
         )
-
+        send_security_email(
+    "RepoGuardian Security Alert",
+    "A secure remediation pull request was automatically created by RepoGuardian."
+)
         # ----------------------------------------
         # CREATE PR
         # ----------------------------------------
@@ -1291,7 +1295,7 @@ RepoGuardian Autonomous Security Engine
             f"[AutoFix Agent] Autonomous Pull Request #{pr.number} opened successfully",
             "success"
         )
-
+        
         return {
             "success": True,
             "url": pr.html_url,
