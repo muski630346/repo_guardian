@@ -17,7 +17,7 @@ import AutoFixPanel from "../components/AutoFixPanel";
 export default function Dashboard() {
 
   const [data, setData] = useState(null);
-  const [agents, setAgents] = useState({});
+  const [agents, setAgents] = useState([]);
   const [activity, setActivity] = useState([]);
 
   const [loading, setLoading] = useState(true);
@@ -287,14 +287,7 @@ export default function Dashboard() {
         <div style={{
           padding: "16px 20px"
         }}>
-         <AgentStatusPanel
-  agents={{
-    "Orchestrator Agent": "ACTIVE",
-    "Security Agent": "SCANNING",
-    "Repo Health Agent": "ACTIVE",
-    "Memory Agent": "IDLE"
-  }}
-/>
+          <AgentStatusPanel agents={agents} />
         </div>
 
       </div>
