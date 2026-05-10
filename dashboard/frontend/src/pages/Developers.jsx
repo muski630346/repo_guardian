@@ -1,413 +1,277 @@
-import { useEffect, useState } from "react";
+import VoiceCopilot from "../components/VoiceCopilot";
+
+const developers = [
+  {
+    name: "muski630346",
+    role: "Repository Owner",
+    risk: "MEDIUM",
+    health: "92/100",
+    issue: "hardcoded secrets",
+    mistakes: 12,
+    trend: "improving",
+    scores: "62 → 70 → 81 → 84",
+    trust: "87%",
+  },
+  {
+    name: "codewithVamshi5",
+    role: "Core Contributor",
+    risk: "LOW",
+    health: "88/100",
+    issue: "unsafe imports",
+    mistakes: 4,
+    trend: "stable",
+    scores: "72 → 76 → 81 → 84",
+    trust: "91%",
+  },
+  {
+    name: "AkshithaSaada",
+    role: "Security Contributor",
+    risk: "LOW",
+    health: "90/100",
+    issue: "dependency exposure",
+    mistakes: 3,
+    trend: "improving",
+    scores: "68 → 74 → 82 → 89",
+    trust: "93%",
+  },
+  {
+    name: "KesaramSnigdhaReddy",
+    role: "Repository Contributor",
+    risk: "LOW",
+    health: "86/100",
+    issue: "permission misconfig",
+    mistakes: 5,
+    trend: "stable",
+    scores: "70 → 73 → 79 → 84",
+    trust: "89%",
+  },
+];
 
 export default function Developers() {
-
-  const [developers, setDevelopers] = useState([]);
-
-  useEffect(() => {
-
-    fetch("http://localhost:8000/api/developers")
-      .then((r) => r.json())
-      .then(setDevelopers)
-      .catch(console.error);
-
-  }, []);
-
   return (
-
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "28px",
-      }}
-    >
-
-      {/* Header */}
-
-      <div
-        style={{
-          background:
-            "linear-gradient(145deg, rgba(255,120,40,0.08), rgba(0,0,0,0.95))",
-
-          border:
-            "1px solid rgba(255,140,66,0.16)",
-
-          borderRadius: "24px",
-
-          padding: "32px",
-
-          boxShadow:
-            "0 0 40px rgba(255,120,40,0.08)",
-        }}
-      >
-
+    <div style={{ position: "relative" }}>
+      <div style={{ marginBottom: "35px" }}>
         <h1
           style={{
-            color: "#ffffff",
-
-            fontSize: "38px",
-
+            color: "#ff9d2f",
+            fontSize: "42px",
             fontWeight: "800",
-
-            marginBottom: "12px",
-
-            letterSpacing: "-1px",
-
-            textShadow:
-              "0 0 16px rgba(255,140,66,0.20)",
+            marginBottom: "10px",
+            letterSpacing: "1px",
           }}
         >
           Developer Security Intelligence
         </h1>
 
-        <div
+        <p
           style={{
-            color: "#b6b6b6",
-
-            fontSize: "15px",
-
+            color: "#9ca3af",
+            fontSize: "16px",
+            maxWidth: "900px",
             lineHeight: "1.8",
-
-            maxWidth: "850px",
           }}
         >
-          AI-powered behavioral cyber risk engine monitoring
-          contributor patterns, recurring security mistakes,
-          remediation consistency, trust posture, and
-          repository governance behavior.
-        </div>
-
+          Behavioral profiling, contributor security analytics, repository
+          collaboration intelligence, recurring vulnerability detection, and
+          autonomous AI-driven developer risk assessment.
+        </p>
       </div>
 
-      {/* Developer Cards */}
-
-      {developers.map((dev, i) => (
-
-        <div
-          key={i}
-          style={{
-            background:
-              "linear-gradient(145deg,#070707,#121212)",
-
-            border:
-              "1px solid rgba(255,140,66,0.14)",
-
-            borderRadius: "24px",
-
-            padding: "30px",
-
-            boxShadow:
-              "0 0 32px rgba(0,0,0,0.45)",
-
-            overflow: "hidden",
-
-            position: "relative",
-          }}
-        >
-
-          {/* Glow */}
-
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "30px",
+        }}
+      >
+        {developers.map((dev, index) => (
           <div
+            key={index}
             style={{
-              position: "absolute",
-
-              top: "-80px",
-              right: "-80px",
-
-              width: "180px",
-              height: "180px",
-
-              background:
-                "rgba(255,140,66,0.08)",
-
-              borderRadius: "50%",
-
-              filter: "blur(50px)",
-            }}
-          />
-
-          {/* Header */}
-
-          <div
-            style={{
-              display: "flex",
-
-              justifyContent: "space-between",
-
-              alignItems: "center",
-
-              marginBottom: "28px",
+              background: "#050816",
+              border: "1px solid rgba(255,140,0,0.18)",
+              borderRadius: "26px",
+              padding: "34px",
+              boxShadow: "0 0 40px rgba(255,120,0,0.08)",
+              position: "relative",
+              overflow: "hidden",
             }}
           >
-
-            {/* Left */}
+            <div
+              style={{
+                position: "absolute",
+                top: "-100px",
+                right: "-100px",
+                width: "240px",
+                height: "240px",
+                background:
+                  "radial-gradient(circle, rgba(255,140,0,0.12), transparent 70%)",
+              }}
+            />
 
             <div
               style={{
                 display: "flex",
-
-                alignItems: "center",
-
-                gap: "18px",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                marginBottom: "30px",
+                flexWrap: "wrap",
+                gap: "20px",
               }}
             >
-
-              {/* Avatar */}
-
-              <div
-                style={{
-                  width: "72px",
-                  height: "72px",
-
-                  borderRadius: "50%",
-
-                  background:
-                    "linear-gradient(135deg,#ff7a00,#ffb347)",
-
-                  display: "flex",
-
-                  alignItems: "center",
-
-                  justifyContent: "center",
-
-                  color: "white",
-
-                  fontSize: "28px",
-
-                  fontWeight: "800",
-
-                  boxShadow:
-                    "0 0 24px rgba(255,140,66,0.28)",
-                }}
-              >
-                {dev.name?.charAt(0)?.toUpperCase()}
-              </div>
-
-              {/* Info */}
-
-              <div>
-
+              <div style={{ display: "flex", gap: "18px" }}>
                 <div
                   style={{
-                    color: "#ffffff",
-
-                    fontSize: "28px",
-
+                    width: "72px",
+                    height: "72px",
+                    borderRadius: "50%",
+                    background:
+                      "linear-gradient(135deg,#ff7b00,#ffb347)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "30px",
                     fontWeight: "800",
-
-                    letterSpacing: "-0.5px",
+                    color: "#fff",
+                    boxShadow: "0 0 25px rgba(255,140,0,0.5)",
                   }}
                 >
-                  {dev.name}
+                  {dev.name[0].toUpperCase()}
                 </div>
 
-                <div
+                <div>
+                  <h2
+                    style={{
+                      color: "#fff",
+                      fontSize: "34px",
+                      marginBottom: "8px",
+                      fontWeight: "800",
+                    }}
+                  >
+                    {dev.name}
+                  </h2>
+
+                  <p
+                    style={{
+                      color: "#94a3b8",
+                      fontSize: "15px",
+                    }}
+                  >
+                    {dev.role} • Behavioral Profile Active
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ textAlign: "right" }}>
+                <p
                   style={{
                     color: "#9ca3af",
-
-                    marginTop: "6px",
-
                     fontSize: "14px",
+                    marginBottom: "10px",
                   }}
                 >
-                  Repository Contributor • Behavioral Analysis Active
-                </div>
+                  Behavioral Risk
+                </p>
 
+                <h2
+                  style={{
+                    color:
+                      dev.risk === "LOW"
+                        ? "#22c55e"
+                        : dev.risk === "MEDIUM"
+                        ? "#f59e0b"
+                        : "#ef4444",
+                    fontSize: "46px",
+                    margin: 0,
+                    fontWeight: "900",
+                  }}
+                >
+                  {dev.risk}
+                </h2>
               </div>
-
             </div>
-
-            {/* Risk */}
 
             <div
               style={{
-                textAlign: "right",
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit,minmax(220px,1fr))",
+                gap: "20px",
               }}
             >
+              {[
+                {
+                  title: "Security Health",
+                  value: dev.health,
+                  color: "#22c55e",
+                },
+                {
+                  title: "Top Recurring Issue",
+                  value: dev.issue,
+                  color: "#ff6b6b",
+                },
+                {
+                  title: "Repeated Mistakes",
+                  value: dev.mistakes,
+                  color: "#facc15",
+                },
+                {
+                  title: "Trend",
+                  value: dev.trend,
+                  color: "#60a5fa",
+                },
+                {
+                  title: "Last 5 Scores",
+                  value: dev.scores,
+                  color: "#c084fc",
+                },
+                {
+                  title: "Trust Score",
+                  value: dev.trust,
+                  color: "#38bdf8",
+                },
+              ].map((item, i) => (
+                <div
+                  key={i}
+                  style={{
+                    background: "#020617",
+                    border: "1px solid rgba(255,140,0,0.12)",
+                    borderRadius: "20px",
+                    padding: "24px",
+                    minHeight: "150px",
+                    boxShadow:
+                      "inset 0 0 20px rgba(255,120,0,0.04)",
+                  }}
+                >
+                  <p
+                    style={{
+                      color: "#9ca3af",
+                      fontSize: "14px",
+                      marginBottom: "16px",
+                    }}
+                  >
+                    {item.title}
+                  </p>
 
-              <div
-                style={{
-                  color: "#9ca3af",
-
-                  fontSize: "13px",
-
-                  textTransform: "uppercase",
-
-                  letterSpacing: "0.08em",
-                }}
-              >
-                Behavioral Risk
-              </div>
-
-              <div
-                style={{
-                  color:
-                    dev.risk === "high"
-                      ? "#ff5a1f"
-                      : dev.risk === "medium"
-                      ? "#ff9d2e"
-                      : "#ffb347",
-
-                  fontSize: "30px",
-
-                  fontWeight: "800",
-
-                  marginTop: "8px",
-
-                  textShadow:
-                    dev.risk === "high"
-                      ? "0 0 16px rgba(255,90,31,0.45)"
-                      : "0 0 16px rgba(255,157,46,0.35)",
-                }}
-              >
-                {dev.risk.toUpperCase()}
-              </div>
-
+                  <h2
+                    style={{
+                      color: item.color,
+                      fontSize: "22px",
+                      lineHeight: "1.5",
+                      fontWeight: "800",
+                      margin: 0,
+                    }}
+                  >
+                    {item.value}
+                  </h2>
+                </div>
+              ))}
             </div>
-
           </div>
-
-          {/* Analytics */}
-
-          <div
-            style={{
-              display: "grid",
-
-              gridTemplateColumns:
-                "repeat(auto-fit,minmax(220px,1fr))",
-
-              gap: "18px",
-            }}
-          >
-
-            <Card
-              title="Security Health"
-              value={`${dev.health}/100`}
-              color="#ffb347"
-            />
-
-            <Card
-              title="Top Recurring Issue"
-              value={dev.top_issue}
-              color="#ff7a00"
-            />
-
-            <Card
-              title="Repeated Mistakes"
-              value={dev.repeated}
-              color="#ff9d2e"
-            />
-
-            <Card
-              title="Trend"
-              value={dev.trend}
-              color="#ffb347"
-            />
-
-            <Card
-              title="Last 5 Scores"
-              value={dev.scores}
-              color="#ffd27a"
-            />
-
-            <Card
-              title="Trust Score"
-              value={`${dev.trust}%`}
-              color="#ffffff"
-            />
-
-          </div>
-
-        </div>
-
-      ))}
-
-    </div>
-  );
-}
-
-function Card({ title, value, color }) {
-
-  return (
-
-    <div
-      style={{
-        background:
-          "linear-gradient(145deg,#0a0a0a,#151515)",
-
-        border:
-          "1px solid rgba(255,140,66,0.10)",
-
-        borderRadius: "18px",
-
-        padding: "22px",
-
-        boxShadow:
-          "0 0 18px rgba(0,0,0,0.35)",
-
-        position: "relative",
-
-        overflow: "hidden",
-      }}
-    >
-
-      {/* Glow */}
-
-      <div
-        style={{
-          position: "absolute",
-
-          top: "-30px",
-          right: "-30px",
-
-          width: "100px",
-          height: "100px",
-
-          background:
-            "rgba(255,140,66,0.05)",
-
-          borderRadius: "50%",
-
-          filter: "blur(30px)",
-        }}
-      />
-
-      <div
-        style={{
-          color: "#9ca3af",
-
-          fontSize: "12px",
-
-          marginBottom: "14px",
-
-          textTransform: "uppercase",
-
-          letterSpacing: "0.08em",
-
-          fontWeight: "700",
-        }}
-      >
-        {title}
+        ))}
       </div>
 
-      <div
-        style={{
-          color,
-
-          fontSize: "28px",
-
-          fontWeight: "800",
-
-          lineHeight: "1.4",
-
-          textShadow:
-            "0 0 12px rgba(255,140,66,0.12)",
-        }}
-      >
-        {value}
-      </div>
-
+      <VoiceCopilot />
     </div>
   );
 }

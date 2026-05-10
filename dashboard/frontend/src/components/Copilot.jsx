@@ -151,7 +151,7 @@ Recommended next steps:
 
           cursor: "pointer",
 
-          zIndex: 1000,
+          zIndex: 9999,
 
           boxShadow:
             "0 0 24px rgba(255,140,66,0.18)",
