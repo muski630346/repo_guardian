@@ -6,7 +6,7 @@ import PRFeed from "./pages/PRFeed";
 import Findings from "./pages/Findings";
 import Developers from "./pages/Developers";
 
-import VoiceCopilot from "./components/VoiceCopilot";
+
 
 export default function App() {
   return (
@@ -19,7 +19,6 @@ export default function App() {
           <Route path="/developers" element={<Developers />} />
         </Routes>
 
-        <VoiceCopilot />
       </Layout>
     </BrowserRouter>
   );
