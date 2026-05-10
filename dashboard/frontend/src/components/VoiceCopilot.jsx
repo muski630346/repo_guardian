@@ -1,19 +1,258 @@
-import { useEffect, useRef, useState } from "react";
-import { Mic, MicOff } from "lucide-react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function VoiceCopilot() {
 
-  const [listening, setListening] = useState(false);
+  const navigate = useNavigate();
 
   const [transcript, setTranscript] = useState("");
-
   const [response, setResponse] = useState(
     "RepoGuardian AI Voice Copilot Ready"
   );
 
-  const recognitionRef = useRef(null);
+  const speak = (text) => {
 
-  useEffect(() => {
+    speechSynthesis.cancel();
+
+    const utterance =
+      new SpeechSynthesisUtterance(text);
+
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    speechSynthesis.speak(utterance);
+  };
+
+  const handleCommand = async (command) => {
+
+    const text = command.toLowerCase();
+
+    setTranscript(command);
+
+    // 🔥 DEVELOPER INTELLIGENCE
+
+    if (
+      text.includes("developer") ||
+      text.includes("behavior") ||
+      text.includes("behaviour") ||
+      text.includes("profile") ||
+      text.includes("tell me about") ||
+      text.includes("vamshi") ||
+      text.includes("muski") ||
+      text.includes("snigdha") ||
+      text.includes("akshitha")
+    ) {
+
+      try {
+
+        const res = await fetch(
+          "http://localhost:8000/api/developer-memory"
+        );
+
+        const memory = await res.json();
+
+        const usernames = Object.keys(memory);
+
+        // 🔥 SMART NAME MATCHING
+
+        const cleanedText = text.toLowerCase();
+
+        const found = usernames.find((u) => {
+
+          const normalized = u.toLowerCase();
+
+          return (
+            cleanedText.includes(normalized) ||
+            normalized.includes(
+              cleanedText
+                .replace("tell me about", "")
+                .trim()
+            ) ||
+            cleanedText.includes("vamshi") &&
+              normalized.includes("vamshi") ||
+
+            cleanedText.includes("muski") &&
+              normalized.includes("muski") ||
+
+            cleanedText.includes("snigdha") &&
+              normalized.includes("snigdha") ||
+
+            cleanedText.includes("akshitha") &&
+              normalized.includes("akshitha")
+          );
+        });
+
+        if (!found) {
+
+          const msg =
+            "Developer not found in behavioral memory.";
+
+          setResponse(msg);
+
+          speak(msg);
+
+          return;
+        }
+
+        const dev = memory[found];
+
+        const msg = `
+Developer ${found}.
+
+Risk level is ${dev.risk_level}.
+
+Top recurring issue is ${dev.top_issue}.
+
+Trust score is ${dev.trust_score}.
+
+Repeated mistakes count is ${dev.repeated_mistakes}.
+
+Behavior trend is ${dev.trend}.
+`;
+
+        setResponse(msg);
+
+        speak(msg);
+
+      } catch (err) {
+
+        console.error(err);
+
+        const msg =
+          "Unable to access developer intelligence memory.";
+
+        setResponse(msg);
+
+        speak(msg);
+      }
+
+      return;
+    }
+
+    // 🔥 SCAN
+
+    if (
+      text.includes("scan")
+    ) {
+
+      const msg =
+        "Scanning repository history.";
+
+      setResponse(msg);
+
+      speak(msg);
+
+      return;
+    }
+
+    // 🔥 EXPORT
+
+    if (
+      text.includes("export") ||
+      text.includes("report")
+    ) {
+
+      const msg =
+        "Exporting security report.";
+
+      setResponse(msg);
+
+      speak(msg);
+
+      window.open(
+        "http://localhost:8000/api/export-report"
+      );
+
+      return;
+    }
+
+    // 🔥 FINDINGS
+
+    if (
+      text.includes("vulnerabilities") ||
+      text.includes("findings")
+    ) {
+
+      navigate("/findings");
+
+      const msg =
+        "Opening findings intelligence.";
+
+      setResponse(msg);
+
+      speak(msg);
+
+      return;
+    }
+
+    // 🔥 PRS
+
+    if (
+      text.includes("pull request") ||
+      text.includes("create pr")
+    ) {
+
+      navigate("/prs");
+
+      const msg =
+        "Opening pull request intelligence.";
+
+      setResponse(msg);
+
+      speak(msg);
+
+      return;
+    }
+
+    // 🔥 DEVELOPERS
+
+    if (
+      text.includes("developers") ||
+      text.includes("developer page")
+    ) {
+
+      navigate("/developers");
+
+      const msg =
+        "Opening developer intelligence page.";
+
+      setResponse(msg);
+
+      speak(msg);
+
+      return;
+    }
+
+    // 🔥 DASHBOARD
+
+    if (
+      text.includes("dashboard")
+    ) {
+
+      navigate("/");
+
+      const msg =
+        "Opening security dashboard.";
+
+      setResponse(msg);
+
+      speak(msg);
+
+      return;
+    }
+
+    // 🔥 UNKNOWN
+
+    const msg =
+      "Command not recognized.";
+
+    setResponse(msg);
+
+    speak(msg);
+  };
+
+  const startListening = () => {
 
     const SpeechRecognition =
       window.SpeechRecognition ||
@@ -22,486 +261,140 @@ export default function VoiceCopilot() {
     if (!SpeechRecognition) {
 
       alert(
-        "Speech Recognition not supported in this browser"
+        "Speech recognition not supported."
       );
 
       return;
     }
 
-    const recognition = new SpeechRecognition();
-
-    recognition.continuous = false;
+    const recognition =
+      new SpeechRecognition();
 
     recognition.lang = "en-US";
 
+    recognition.continuous = false;
+
     recognition.interimResults = false;
+
+    recognition.start();
 
     recognition.onstart = () => {
 
-      setListening(true);
-
+      setResponse(
+        "Listening..."
+      );
     };
 
-    recognition.onend = () => {
-
-      setListening(false);
-
-    };
-
-    recognition.onresult = async (event) => {
+    recognition.onresult = (event) => {
 
       const command =
-        event.results[0][0].transcript.toLowerCase();
-
-      setTranscript(command);
+        event.results[0][0].transcript;
 
       handleCommand(command);
     };
 
-    recognitionRef.current = recognition;
+    recognition.onerror = () => {
 
-  }, []);
-
-  // 🔥 Speak
-
-  const speak = (text) => {
-
-    const utterance =
-      new SpeechSynthesisUtterance(text);
-
-    utterance.rate = 1;
-
-    utterance.pitch = 1;
-
-    utterance.volume = 1;
-
-    speechSynthesis.speak(utterance);
-  };
-
-  // 🔥 AI Commands
-
-  const handleCommand = async (command) => {
-
-    const text =
-      command.toLowerCase().trim();
-
-    console.log(
-      "VOICE COMMAND:",
-      text
-    );
-
-    let aiResponse =
-      "I could not understand the request.";
-
-    // Scan
-
-    if (
-      text.includes("scan") ||
-      text.includes("scan repository") ||
-      text.includes("start scan") ||
-      text.includes("security scan")
-    ) {
-
-      aiResponse =
-        "Starting repository security scan.";
-
-      try {
-
-        await fetch(
-          "http://localhost:8000/api/scan-history"
-        );
-
-        aiResponse =
-          "Repository scan completed successfully.";
-
-      } catch (err) {
-
-        aiResponse =
-          "Failed to complete repository scan.";
-      }
-    }
-
-    // Vulnerabilities
-
-    else if (
-      text.includes("vulnerability") ||
-      text.includes("vulnerabilities") ||
-      text.includes("findings") ||
-      text.includes("critical") ||
-      text.includes("security issues")
-    ) {
-
-      aiResponse =
-        "Three critical vulnerabilities detected including hardcoded secrets, unsafe imports, and API exposure.";
-    }
-
-    // Export
-
-    else if (
-      text.includes("export") ||
-      text.includes("download report") ||
-      text.includes("pdf") ||
-      text.includes("security report")
-    ) {
-
-      window.open(
-        "http://localhost:8000/api/export-report",
-        "_blank"
+      setResponse(
+        "Voice recognition failed."
       );
-
-      aiResponse =
-        "Exporting professional security PDF report.";
-    }
-
-    // Create PR
-
-    else if (
-      text.includes("create pr") ||
-      text.includes("generate pr") ||
-      text.includes("secure pr") ||
-      text.includes("fix pr")
-    ) {
-
-      try {
-
-        await fetch(
-          "http://localhost:8000/api/create_pr",
-          {
-            method: "POST",
-          }
-        );
-
-        aiResponse =
-          "Secure remediation pull request created successfully.";
-
-      } catch (err) {
-
-        aiResponse =
-          "Failed to create remediation pull request.";
-      }
-    }
-
-    // Developer Risk
-
-    else if (
-      text.includes("developer") ||
-      text.includes("behavior") ||
-      text.includes("risk")
-    ) {
-
-      aiResponse =
-        "Behavioral intelligence scan shows medium developer risk due to recurring hardcoded secret patterns.";
-    }
-
-    // Health
-
-    else if (
-      text.includes("health") ||
-      text.includes("security health") ||
-      text.includes("health score")
-    ) {
-
-      aiResponse =
-        "Current repository security health score is 74 out of 100.";
-    }
-
-    // Default
-
-    else {
-
-      aiResponse =
-        "Command not recognized. Try saying scan repository, export report, show vulnerabilities, or create PR.";
-    }
-
-    setResponse(aiResponse);
-
-    speak(aiResponse);
-  };
-
-  // 🔥 Start Voice
-
-  const startListening = () => {
-
-    if (recognitionRef.current) {
-
-      recognitionRef.current.start();
-    }
+    };
   };
 
   return (
+    <>
+      {/* PANEL */}
 
-    <div
-      style={{
-        position: "fixed",
+      <div
+        style={{
+          position: "fixed",
+          bottom: "120px",
+          right: "30px",
+          width: "340px",
+          background: "#050816",
+          border:
+            "1px solid rgba(255,140,0,0.25)",
+          borderRadius: "24px",
+          padding: "22px",
+          zIndex: 999999,
+          boxShadow:
+            "0 0 40px rgba(255,120,0,0.18)",
+          backdropFilter: "blur(12px)",
+        }}
+      >
+        <h2
+          style={{
+            color: "#ff9d2f",
+            fontSize: "24px",
+            marginBottom: "18px",
+            fontWeight: "800",
+          }}
+        >
+          🔥 REPOGUARDIAN VOICE AI
+        </h2>
 
-        bottom: "24px",
-        right: "24px",
+        <div
+          style={{
+            color: "#9ca3af",
+            fontSize: "13px",
+            marginBottom: "10px",
+          }}
+        >
+          HEARD COMMAND
+        </div>
 
-        zIndex: 9999,
-      }}
-    >
+        <div
+          style={{
+            background: "#0b1120",
+            border:
+              "1px solid rgba(255,140,0,0.15)",
+            borderRadius: "16px",
+            padding: "16px",
+            color: "#fff",
+            marginBottom: "18px",
+            minHeight: "24px",
+          }}
+        >
+          {transcript ||
+            "Waiting for voice command..."}
+        </div>
 
-      {/* Pulse Animation */}
+        <div
+          style={{
+            color: "#ffb347",
+            lineHeight: "1.7",
+            fontSize: "15px",
+            whiteSpace: "pre-line",
+          }}
+        >
+          {response}
+        </div>
+      </div>
 
-      <style>
-        {`
-        @keyframes neonPulse {
-
-          0% {
-            transform: scale(1);
-            box-shadow: 0 0 18px rgba(255,140,66,0.22);
-          }
-
-          50% {
-            transform: scale(1.06);
-            box-shadow: 0 0 34px rgba(255,140,66,0.45);
-          }
-
-          100% {
-            transform: scale(1);
-            box-shadow: 0 0 18px rgba(255,140,66,0.22);
-          }
-
-        }
-
-        @keyframes slideUp {
-
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-
-          to {
-            opacity: 1;
-            transform: translateY(0px);
-          }
-
-        }
-        `}
-      </style>
-
-      {/* 🔥 Floating Voice Orb */}
+      {/* BUTTON */}
 
       <button
         onClick={startListening}
         style={{
-
-          width: "78px",
-          height: "78px",
-
+          position: "fixed",
+          right: "28px",
+          bottom: "28px",
+          width: "84px",
+          height: "84px",
           borderRadius: "50%",
-
-          border:
-            "1px solid rgba(255,140,66,0.22)",
-
-          background: listening
-            ? "linear-gradient(135deg,#ff5a1f,#ff7a00)"
-            : "linear-gradient(135deg,#0a0a0a,#181818)",
-
-          boxShadow: listening
-            ? "0 0 40px rgba(255,90,31,0.45)"
-            : "0 0 28px rgba(255,140,66,0.18)",
-
-          display: "flex",
-
-          alignItems: "center",
-
-          justifyContent: "center",
-
+          border: "none",
           cursor: "pointer",
-
-          transition: "0.3s ease",
-
-          animation:
-            "neonPulse 2s infinite ease-in-out",
-
-          backdropFilter: "blur(10px)",
+          background:
+            "radial-gradient(circle,#ffb347,#ff6a00)",
+          color: "#fff",
+          fontSize: "34px",
+          zIndex: 999999,
+          boxShadow:
+            "0 0 35px rgba(255,120,0,0.65)",
         }}
       >
-
-        {listening ? (
-
-          <MicOff
-            color="white"
-            size={32}
-          />
-
-        ) : (
-
-          <Mic
-            color="#ffb066"
-            size={32}
-          />
-
-        )}
-
+        🎙
       </button>
-
-      {/* 🔥 AI Bubble */}
-
-      {(transcript || response) && (
-
-        <div
-          style={{
-            position: "absolute",
-
-            bottom: "98px",
-            right: "0",
-
-            width: "340px",
-
-            background:
-              "linear-gradient(145deg,#050505ee,#121212ee)",
-
-            border:
-              "1px solid rgba(255,140,66,0.14)",
-
-            borderRadius: "22px",
-
-            padding: "20px",
-
-            boxShadow:
-              "0 0 40px rgba(0,0,0,0.55)",
-
-            backdropFilter: "blur(14px)",
-
-            animation:
-              "slideUp 0.25s ease-out",
-          }}
-        >
-
-          {/* Header */}
-
-          <div
-            style={{
-              color: "#ff9d2e",
-
-              fontSize: "13px",
-
-              marginBottom: "10px",
-
-              fontWeight: "800",
-
-              letterSpacing: "0.08em",
-
-              textTransform: "uppercase",
-            }}
-          >
-            🎙 RepoGuardian Voice AI
-          </div>
-
-          {/* Heard */}
-
-          <div
-            style={{
-              color: "#9ca3af",
-
-              fontSize: "11px",
-
-              marginBottom: "8px",
-
-              textTransform: "uppercase",
-
-              letterSpacing: "0.06em",
-            }}
-          >
-            Heard Command
-          </div>
-
-          <div
-            style={{
-              color: "#ffffff",
-
-              fontSize: "14px",
-
-              marginBottom: "16px",
-
-              lineHeight: "1.6",
-
-              background:
-                "linear-gradient(145deg,#0b0b0b,#151515)",
-
-              border:
-                "1px solid rgba(255,140,66,0.08)",
-
-              borderRadius: "14px",
-
-              padding: "12px",
-            }}
-          >
-            {transcript || "Waiting for voice command..."}
-          </div>
-
-          {/* AI Response */}
-
-          <div
-            style={{
-              borderTop:
-                "1px solid rgba(255,140,66,0.08)",
-
-              paddingTop: "14px",
-
-              color: "#ffb347",
-
-              fontSize: "14px",
-
-              lineHeight: "1.8",
-            }}
-          >
-            {response}
-          </div>
-
-          {/* Suggested Commands */}
-
-          <div
-            style={{
-              marginTop: "16px",
-
-              display: "flex",
-
-              flexWrap: "wrap",
-
-              gap: "8px",
-            }}
-          >
-
-            {[
-              "scan repository",
-              "export report",
-              "show vulnerabilities",
-              "create PR"
-            ].map((cmd, i) => (
-
-              <div
-                key={i}
-                style={{
-                  background:
-                    "linear-gradient(145deg,#0d0d0d,#161616)",
-
-                  border:
-                    "1px solid rgba(255,140,66,0.10)",
-
-                  color: "#ffb066",
-
-                  padding: "6px 10px",
-
-                  borderRadius: "999px",
-
-                  fontSize: "10px",
-
-                  fontWeight: "600",
-                }}
-              >
-                {cmd}
-              </div>
-
-            ))}
-
-          </div>
-
-        </div>
-      )}
-
-    </div>
+    </>
   );
 }
