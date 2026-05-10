@@ -1916,6 +1916,11 @@ def get_developers():
         }
 
     ]
+@app.get("/api/developer-memory")
+def developer_memory():
+
+    with open("db/memory-store.json", "r") as f:
+        return json.load(f)
 # ─────────────────────────────────────────
 # Run
 # ─────────────────────────────────────────
